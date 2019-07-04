@@ -25,6 +25,12 @@ class mixture_nz:
       self.models = np.asarray([models]*self.n_components)
 
 
+  def bulk_mean_for_mixture(m_mix, w_b, a_b, theta_b, w_o, m_o, a_o, theta_o):
+
+    retVar = m_mix/w_b - (w_o/w_b)*(a_o*theta_o + m_o) - a_b*theta_b
+
+    return retVar
+
   def get_mean(self):
 
     dist_mean = 0.
