@@ -67,6 +67,12 @@ if __name__=='__main__':
   from matplotlib import pyplot as plt
   from matplotlib import rc
 
+  # Load in the 2point code
+  import sys
+  #sys.path.append('~/Dropbox/scratch/git/2point/twopoint')
+  sys.path.append('../2point/twopoint')
+  from twopoint import *
+
   rc('text', usetex=True)
   rc('font', family='serif')
   rc('font', size=11)
@@ -95,3 +101,41 @@ if __name__=='__main__':
   plt.xlabel('Redshift $z$')
   plt.ylabel('$n(z)$')
   plt.savefig('./plots/bulk_outliers.png', dpi=300, bbox_inches='tight')
+
+  # Specify 5 n(z)s
+  # Still to write!!!
+  # means = []
+  # outlier_fractions = []
+  # outlier_positions = []
+  # Now convert these into the mixture_nz inputs... still to do!!!
+  bulk_outliers = mixture_nz([1.,0.1], [3., 2.5], [0., 0.1], [0.25, 0.05])
+
+  ## Save them in shear-2pt format
+
+  # Load in the fits file that came with the 2point code
+  #filename = '~/Dropbox/scratch/git/2point/des_multiprobe_v1.10.fits'
+  filename = '../2point/des_multiprobe_v1.10.fits'
+  T = TwoPointFile.from_fits(filename, covmat_name=None)
+
+  # Create new n(z)s using the mixture model
+  # We just want to modify the source n(z)s (not the lens n(z)s)
+  # Assume for now this is hard-wired to be the second kernel...!!! not great coding!!!
+  kernel = T.kernels[1]
+  print(kernel.name)
+  print('Panic if the above doesnt say NZ_SOURCE') # Do it better!
+  nbin = kernel.nbin
+  z = kernel.z
+  zmin = z[0]
+  nsample = len(z)
+  zmax = z[nsample-1]
+  for i in range(nbin):
+    # Bodge something together for now to illustrate the point
+    kernel.nzs[i] = bulk_outliers.gridded_nz(zmin, zmax, nsample, True) + i
+  T.kernels[1] = kernel
+
+  # Check and write out the new n(z)s
+  output_root = 'plots/mixture_nz_des_multiprobe_20190717_2100'
+  T.plots(output_root, plot_cov=False)
+  out_fits_filename = 'mixture_nz_des_multiprobe_20190717_2100.fits'
+  T.to_fits(filename = out_fits_filename)
+
