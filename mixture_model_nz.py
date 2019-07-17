@@ -1,3 +1,5 @@
+# Module to create toy n(z)s based on multiple component Gamma distributions
+
 import numpy as np
 from scipy.integrate import cumtrapz
 from scipy.stats import norm, gamma
@@ -9,7 +11,7 @@ model_dict = {
 
 class mixture_nz:
 
-  # class for a gmm nz with a vector of gaussian/gamma parameters
+  # class for a mixture model nz with a vector of gaussian/gamma parameters
   # weights, means, variances
 
   def __init__(self, weights, pars, locs, scales, models='gamma'):
@@ -26,6 +28,11 @@ class mixture_nz:
 
 
   def bulk_mean_for_mixture(m_mix, w_b, a_b, theta_b, w_o, m_o, a_o, theta_o):
+    # Function to calculate the location to assign the bulk, such that the mean of the
+    # bulk+outlier n(z) has the value m_mix, for a given outlier n(z) 
+    # The outlier n(z) is specified by its weight w_o, its location m_o, 
+    # its shape parameter a_o and its scale parameter theta_o 
+    # The bulk n(z) is specified by its weight w_b, shape parameter a_b and scale theta_b
 
     retVar = m_mix/w_b - (w_o/w_b)*(a_o*theta_o + m_o) - a_b*theta_b
 
@@ -71,6 +78,7 @@ if __name__=='__main__':
   npix = 512
   z = np.linspace(zmin, zmax, npix)
 
+  reference = mixture_nz(1., 3., 0.0225, 0.25)
   bulk = mixture_nz(1., 3., 0.0225, 0.25)
   outliers = mixture_nz(1, 3., 0.1, 0.05)
   bulk_outliers = mixture_nz([1.,0.1], [3., 2.5], [0., 0.1], [0.25, 0.05])
