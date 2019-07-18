@@ -16,27 +16,35 @@ class mixture_nz:
 
   def __init__(self, weights, pars, locs, scales, models='gamma'):
     self.n_components = np.size(weights)
-    self.pars = np.atleast_1d(pars)
+    self.pars = np.atleast_1d(pars) # This is 'a' in scipiy notation, or  'k' in wikipedia notation
     self.weights = np.atleast_1d(weights)
     self.locs = np.atleast_1d(locs)
-    self.scales = np.atleast_1d(scales)
+    self.scales = np.atleast_1d(scales) # This is 'theta' in wikipedia notation
 
     if np.size(models) > 1:
       self.models = np.asarray(models)
     else:
       self.models = np.asarray([models]*self.n_components)
 
-
-  def bulk_mean_for_mixture(m_mix, w_b, a_b, theta_b, w_o, m_o, a_o, theta_o):
-    # Function to calculate the location to assign the bulk, such that the mean of the
+  def bulk_mean_for_mixture(mix_mean, b_w, b_a, b_theta, o_w, o_loc, o_a, o_theta):
+  #def bulk_mean_for_mixture(mean_mix, w_b, a_b, theta_b, w_o, loc_o, a_o, theta_o):
+    # Function to calculate the mean to assign the bulk, such that the mean of the
     # bulk+outlier n(z) has the value m_mix, for a given outlier n(z)
-    # The outlier n(z) is specified by its weight w_o, its location m_o,
+    # The outlier n(z) is specified by its weight w_o, its location loc_o,
     # its shape parameter a_o and its scale parameter theta_o
     # The bulk n(z) is specified by its weight w_b, shape parameter a_b and scale theta_b
 
-    retVar = m_mix/w_b - (w_o/w_b)*(a_o*theta_o + m_o) - a_b*theta_b
+    # This was previously calculating the location instead of the mean but I think 
+    # the mean is a more useful thing to return so switching to that instead
+    #retVar = m_mix/w_b - (w_o/w_b)*(a_o*theta_o + loc_o) - a_b*theta_b
 
-    return retVar
+    # Writing this out with more steps for clarity:
+    b_gamma_mean = b_a * b_theta
+    o_gamma_mean = o_a * o_theta
+    o_mean = o_gamma_mean + o_loc
+    b_mean = ( mix_mean - o_w * o_mean ) / b_w
+
+    return b_mean
 
   def get_mean(self):
 
@@ -46,7 +54,6 @@ class mixture_nz:
       dist_mean += self.weights[im]*model_dict[model](self.pars[im], self.locs[im], self.scales[im]).mean()
 
     return dist_mean
-
 
   def gridded_nz(self, zmin, zmax, npix=512, normed=False):
 
@@ -60,6 +67,69 @@ class mixture_nz:
       nz = nz / cumtrapz(nz, z)[-1]
 
     return nz
+
+def Gamma_skew_to_a(skew):
+
+  # From wikipedia `The skewness of the gamma distribution only depends on its 
+  # shape parameter, k, and it is equal to 2/{\sqrt {k}}.''
+  # So to convert from skew to shape we do k = (2/skew)^2
+  # k is the shape parameter 
+  # k is written as 'a' in the scipy documentation so use that notation here
+  a = (2.0 / skew) * (2.0 / skew) 
+
+  return a
+
+def Gamma_mean_a_loc_to_theta(mean, a, loc):
+
+  # loc is the scipy notation for an offset of the whole Gamma distribution
+  # Now the difference between the mean and the loc determines the variance
+  # scipy calls theta the 'scale'
+  gamma_mean = mean - loc
+  theta = gamma_mean / a
+
+  return theta
+
+def Gamma_a_to_skew(a):
+
+  skew = 2 / np.sqrt(a)
+
+  return skew
+
+def Gamma_a_theta_loc_to_mean(a, theta, loc):
+
+  # First calculate the mean of the Gamma distribution (for a distribution with no offset i.e. for loc=0)
+  gamma_mean = a * theta
+  mean = loc + gamma_mean
+
+  return mean
+
+def get_nz_from_skews_etc(nzs, zmin, zmax, nz, mix_means, outlier_fractions, outlier_means, outlier_skews, outlier_locs,  bulk_skews, bulk_locs):
+
+  nzbin = len(mix_means)
+
+  for izbin in range(nzbin):
+    # Convert these into the mixture_nz inputs..
+    mix_mean = mix_means[izbin] # This is the mean of the whole multimodal n(z)
+    b_w = 1. # Fix the arbitrary scaling of the height of the n(z)s arbitrarily
+    o_w = outlier_fractions[izbin] # check this is what the ws actually do!
+    o_m = outlier_means[izbin]
+    b_a = Gamma_skew_to_a(bulk_skews[izbin])
+    o_a = Gamma_skew_to_a(outlier_skews[izbin])
+
+    o_mean = outlier_means[izbin]
+    o_loc = outlier_locs[izbin]
+    o_theta = Gamma_mean_a_loc_to_theta(o_mean, o_a, o_loc)
+
+    b_loc = bulk_locs[izbin]
+    b_mean = (mix_mean - o_w * o_mean) / b_w
+    b_theta = Gamma_mean_a_loc_to_theta(b_mean, b_a, b_loc)
+
+    #print('b_w=',b_w,' o_w=',o_w)
+    print('b_theta=',b_theta,' o_theta=',o_theta)
+    bulk_outliers = mixture_nz([b_w, o_w], [b_a, o_a], [b_loc, o_loc], [b_theta, b_theta])
+    nzs[izbin] = bulk_outliers.gridded_nz(zmin, zmax, nz, True)
+
+  return nzs
 
 
 if __name__=='__main__':
@@ -104,36 +174,13 @@ if __name__=='__main__':
 
   # Specify 5 n(z)s
   nzbin = 5
-  means = [0.2 0.4 0.6 0.8 1.0]
-  outlier_fractions = [0.1 0.1 0.1 0.1 0.1]
-  outlier_means = [0.1 0.1 0.1 0.1 0.1]
-  outlier_shapes = [??]
-  outlier_scales = [??]
-  bulk_shapes = [??]
-  bulk_scales = [??]
-
-  # Now convert these into the mixture_nz inputs..
-  izbin = 0
-  mean = means[izbin]
-  outlier_fraction = outlier_fractions[izbin]
-  outlier_mean = outlier_means[izbin]
-  w_b = 1 # Fix the arbitrary scaling of the height of the n(z)s arbitrarily
-  w_o = w_b * outlier_fraction # check this is what ws actually do!
-  m_o = outlier_mean
-  a_b = bulk_shapes[izbin]
-  theta_b =
-  a_o = outlier_shapes[izbin]
-  theta_o =
-
-      # Function to calculate the location to assign the bulk, such that the mean of the
-    # bulk+outlier n(z) has the value m_mix, for a given outlier n(z)
-    # The outlier n(z) is specified by its weight w_o, its location m_o,
-    # its shape parameter a_o and its scale parameter theta_o
-    # The bulk n(z) is specified by its weight w_b, shape parameter a_b and scale theta_b
-
-
-  bulk_mean_for_mixture(mean, w_b, a_b, theta_b, w_o, m_o, a_o, theta_o):
-  bulk_outliers = mixture_nz([1.,0.1], [3., 2.5], [0., 0.1], [0.25, 0.05])
+  mix_means = [0.4, 0.6, 0.8, 1.0, 1.2]
+  outlier_fractions = [0.1, 0.1, 0.1, 0.1, 0.1]
+  outlier_means = [0.1, 0.2, 0.3, 0.4, 0.5]
+  outlier_skews = [0.9, 0.9, 0.9, 0.9, 0.9]
+  outlier_locs = [0.1, 0.1, 0.1, 0.1, 0.1]
+  bulk_skews = [0.9, 0.9, 0.9, 0.9, 0.9]
+  bulk_locs = [0.3, 0.3, 0.3, 0.3, 0.3]
 
   ## Save them in shear-2pt format
 
@@ -147,15 +194,16 @@ if __name__=='__main__':
   # Assume for now this is hard-wired to be the second kernel...!!! not great coding!!!
   kernel = T.kernels[1]
   print(kernel.name)
-  print('Panic if the above doesnt say NZ_SOURCE') # Do it better!
+  print('Panic if the above doesnt say NZ_SOURCE') # Do this better!
   nbin = kernel.nbin
+  #if (nbin is not len(mix_means): print('Panic! - inconsistent nbin!')
   z = kernel.z
   zmin = z[0]
   nsample = len(z)
   zmax = z[nsample-1]
-  for i in range(nbin):
-    # Bodge something together for now to illustrate the point
-    kernel.nzs[i] = bulk_outliers.gridded_nz(zmin, zmax, nsample, True) + i
+  nzs = kernel.nzs # This is a hack to get something the right shape to overwrite
+  nzs = get_nz_from_skews_etc(nzs, zmin, zmax, nsample, mix_means, outlier_fractions, outlier_means, outlier_skews, outlier_locs,  bulk_skews, bulk_locs)
+  kernel.nzs = nzs
   T.kernels[1] = kernel
 
   # Check and write out the new n(z)s
