@@ -20,7 +20,7 @@ class mixture_nz:
     self.weights = np.atleast_1d(weights)
     self.locs = np.atleast_1d(locs)
     self.scales = np.atleast_1d(scales)
-    
+
     if np.size(models) > 1:
       self.models = np.asarray(models)
     else:
@@ -29,9 +29,9 @@ class mixture_nz:
 
   def bulk_mean_for_mixture(m_mix, w_b, a_b, theta_b, w_o, m_o, a_o, theta_o):
     # Function to calculate the location to assign the bulk, such that the mean of the
-    # bulk+outlier n(z) has the value m_mix, for a given outlier n(z) 
-    # The outlier n(z) is specified by its weight w_o, its location m_o, 
-    # its shape parameter a_o and its scale parameter theta_o 
+    # bulk+outlier n(z) has the value m_mix, for a given outlier n(z)
+    # The outlier n(z) is specified by its weight w_o, its location m_o,
+    # its shape parameter a_o and its scale parameter theta_o
     # The bulk n(z) is specified by its weight w_b, shape parameter a_b and scale theta_b
 
     retVar = m_mix/w_b - (w_o/w_b)*(a_o*theta_o + m_o) - a_b*theta_b
@@ -103,11 +103,36 @@ if __name__=='__main__':
   plt.savefig('./plots/bulk_outliers.png', dpi=300, bbox_inches='tight')
 
   # Specify 5 n(z)s
-  # Still to write!!!
-  # means = []
-  # outlier_fractions = []
-  # outlier_positions = []
-  # Now convert these into the mixture_nz inputs... still to do!!!
+  nzbin = 5
+  means = [0.2 0.4 0.6 0.8 1.0]
+  outlier_fractions = [0.1 0.1 0.1 0.1 0.1]
+  outlier_means = [0.1 0.1 0.1 0.1 0.1]
+  outlier_shapes = [??]
+  outlier_scales = [??]
+  bulk_shapes = [??]
+  bulk_scales = [??]
+
+  # Now convert these into the mixture_nz inputs..
+  izbin = 0
+  mean = means[izbin]
+  outlier_fraction = outlier_fractions[izbin]
+  outlier_mean = outlier_means[izbin]
+  w_b = 1 # Fix the arbitrary scaling of the height of the n(z)s arbitrarily
+  w_o = w_b * outlier_fraction # check this is what ws actually do!
+  m_o = outlier_mean
+  a_b = bulk_shapes[izbin]
+  theta_b =
+  a_o = outlier_shapes[izbin]
+  theta_o =
+
+      # Function to calculate the location to assign the bulk, such that the mean of the
+    # bulk+outlier n(z) has the value m_mix, for a given outlier n(z)
+    # The outlier n(z) is specified by its weight w_o, its location m_o,
+    # its shape parameter a_o and its scale parameter theta_o
+    # The bulk n(z) is specified by its weight w_b, shape parameter a_b and scale theta_b
+
+
+  bulk_mean_for_mixture(mean, w_b, a_b, theta_b, w_o, m_o, a_o, theta_o):
   bulk_outliers = mixture_nz([1.,0.1], [3., 2.5], [0., 0.1], [0.25, 0.05])
 
   ## Save them in shear-2pt format
@@ -138,4 +163,3 @@ if __name__=='__main__':
   T.plots(output_root, plot_cov=False)
   out_fits_filename = 'mixture_nz_des_multiprobe_20190717_2100.fits'
   T.to_fits(filename = out_fits_filename)
-
